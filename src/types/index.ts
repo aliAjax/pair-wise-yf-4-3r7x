@@ -17,6 +17,8 @@ export interface WindowScene {
   treeDensity: TreeDensity
   pedestrianStatus: PedestrianStatus
   note: string
+  /** 配对伙伴的 id；旧记录缺失此字段表示未配对 */
+  partnerId?: string | null
 }
 
 export interface SceneFormData {

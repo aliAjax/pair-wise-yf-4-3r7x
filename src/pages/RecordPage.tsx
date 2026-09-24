@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bus, MapPin, Armchair, Clock, CloudSun, Signpost, TreePine, Users, FileText, Send } from 'lucide-react'
+import { Bus, MapPin, Armchair, Clock, CloudSun, Signpost, TreePine, Users, FileText, Send, ArrowLeftRight } from 'lucide-react'
 import { useSceneStore } from '@/store/useSceneStore'
 import { getWeatherIcon, getTreeIcon, getPedestrianIcon, formatTimestamp } from '@/utils/sceneHelpers'
 import type { SceneFormData, Weather, TreeDensity, PedestrianStatus, SeatDirection } from '@/types'
@@ -25,6 +25,7 @@ export default function RecordPage() {
   const [form, setForm] = useState<SceneFormData>(initialForm)
   const [now, setNow] = useState(new Date())
   const [showSuccess, setShowSuccess] = useState(false)
+  const [paired, setPaired] = useState(false)
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -38,7 +39,8 @@ export default function RecordPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    saveScene(form)
+    const didPair = saveScene(form)
+    setPaired(didPair)
     setShowSuccess(true)
     setTimeout(() => {
       setShowSuccess(false)
@@ -51,8 +53,14 @@ export default function RecordPage() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="animate-bounce flex flex-col items-center gap-2 opacity-0" style={{ animation: 'fadeInUp 1.5s ease forwards' }}>
-            <Bus className="w-16 h-16 text-dusk-400" />
-            <span className="text-mist-100 font-serif text-lg">记录已保存</span>
+            {paired ? (
+              <ArrowLeftRight className="w-16 h-16 text-dusk-300" />
+            ) : (
+              <Bus className="w-16 h-16 text-dusk-400" />
+            )}
+            <span className="text-mist-100 font-serif text-lg">
+              {paired ? '记录已保存，已与对侧窗景配对' : '记录已保存'}
+            </span>
           </div>
           <style>{`@keyframes fadeInUp { 0% { opacity:0; transform:translateY(20px) } 40% { opacity:1; transform:translateY(0) } 100% { opacity:0; transform:translateY(-40px) } }`}</style>
         </div>

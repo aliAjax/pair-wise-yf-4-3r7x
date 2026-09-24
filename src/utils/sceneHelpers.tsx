@@ -1,4 +1,4 @@
-import type { Weather, TreeDensity, PedestrianStatus } from '@/types'
+import type { Weather, TreeDensity, PedestrianStatus, WindowScene } from '@/types'
 import {
   Sun, Cloud, CloudRain, CloudDrizzle, CloudSnow, CloudFog,
   TreePine, TreePine as TreeSparse, Trees,
@@ -71,3 +71,49 @@ export const WRITING_PROMPTS = [
   '用天气和行人密度写一段氛围描写',
   '把窗景当作一幅画，为它写一段策展词',
 ]
+
+export type TimelineEntry =
+  | { kind: 'single'; scene: WindowScene; key: string; timestamp: string }
+  | { kind: 'pair'; scenes: [WindowScene, WindowScene]; key: string; timestamp: string }
+
+/**
+ * 把记录列表整理成时间线条目：配对的两条合并为一条（按采样时间先后排列，
+ * 以较早的采样时间作为条目排序依据），未配对的保持单独条目。
+ */
+export function buildTimelineEntries(scenes: WindowScene[]): TimelineEntry[] {
+  const byId = new Map(scenes.map((s) => [s.id, s]))
+  const consumed = new Set<string>()
+  const entries: TimelineEntry[] = []
+
+  for (const scene of scenes) {
+    if (consumed.has(scene.id)) continue
+    const partnerId = scene.partnerId
+    const partner = partnerId ? byId.get(partnerId) : null
+    const mutual = !!partner && partner.partnerId === scene.id
+
+    if (partner && mutual) {
+      consumed.add(scene.id)
+      consumed.add(partner.id)
+      const ordered: [WindowScene, WindowScene] =
+        new Date(scene.timestamp).getTime() <= new Date(partner.timestamp).getTime()
+          ? [scene, partner]
+          : [partner, scene]
+      entries.push({
+        kind: 'pair',
+        scenes: ordered,
+        key: `pair-${scene.id}`,
+        timestamp: ordered[0].timestamp,
+      })
+    } else {
+      consumed.add(scene.id)
+      entries.push({
+        kind: 'single',
+        scene,
+        key: `single-${scene.id}`,
+        timestamp: scene.timestamp,
+      })
+    }
+  }
+
+  return entries
+}
