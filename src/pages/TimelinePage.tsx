@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Route, X, Trash2, Clock, MapPin } from 'lucide-react'
+import { Search, Route, X, Trash2, Clock, MapPin, ArrowLeftRight } from 'lucide-react'
 import { useSceneStore } from '@/store/useSceneStore'
 import {
   formatTimestamp,
@@ -8,13 +8,20 @@ import {
   getTreeIcon,
   getPedestrianIcon,
 } from '@/utils/sceneHelpers'
+import { getPartner } from '@/utils/pairs'
+import PairView from '@/components/PairView'
 import type { WindowScene } from '@/types'
 
+/** 详情状态：配对记录并排显示，单条记录显示原有详情 */
+type Detail =
+  | { kind: 'pair'; pair: [WindowScene, WindowScene] }
+  | { kind: 'single'; scene: WindowScene }
+
 export default function TimelinePage() {
-  const { routeNames, selectedRoute, currentRouteScenes, selectRoute, loadAll, deleteScene } =
+  const { scenes, routeNames, selectedRoute, currentRouteScenes, selectRoute, loadAll, deleteScene } =
     useSceneStore()
   const [search, setSearch] = useState('')
-  const [detailScene, setDetailScene] = useState<WindowScene | null>(null)
+  const [detail, setDetail] = useState<Detail | null>(null)
 
   useEffect(() => {
     loadAll()
@@ -24,13 +31,37 @@ export default function TimelinePage() {
     r.toLowerCase().includes(search.toLowerCase())
   )
 
+  // 配对记录按各自的采样时间排列在时间线上
   const sorted = [...currentRouteScenes].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   )
 
+  const openDetail = (scene: WindowScene) => {
+    const partner = getPartner(scene, scenes)
+    if (partner) {
+      const pair: [WindowScene, WindowScene] =
+        scene.seatDirection === '左' ? [scene, partner] : [partner, scene]
+      setDetail({ kind: 'pair', pair })
+    } else {
+      setDetail({ kind: 'single', scene })
+    }
+  }
+
+  /** 删除一条后，其伙伴恢复单独状态：若正在对照弹窗中则切换为伙伴的单条详情 */
   const handleDelete = (id: string) => {
-    deleteScene(id)
-    setDetailScene(null)
+    if (detail?.kind === 'pair') {
+      const remaining = detail.pair.find((s) => s.id !== id) ?? null
+      deleteScene(id)
+      if (remaining) {
+        const live = useSceneStore.getState().scenes.find((s) => s.id === remaining.id)
+        setDetail(live ? { kind: 'single', scene: live } : null)
+      } else {
+        setDetail(null)
+      }
+    } else {
+      deleteScene(id)
+      setDetail(null)
+    }
   }
 
   return (
@@ -90,117 +121,154 @@ export default function TimelinePage() {
           <div className="relative pl-8">
             <div className="absolute left-3 top-0 bottom-0 w-px bg-teal-800" />
             <div className="space-y-6">
-              {sorted.map((scene) => (
-                <div key={scene.id} className="relative flex gap-4">
-                  <div className="absolute -left-5 top-1 h-2.5 w-2.5 rounded-full bg-dusk-400 ring-4 ring-teal-950" />
-                  <div className="w-20 shrink-0 pt-0.5 text-right">
-                    <p className="text-xs text-dusk-400">
-                      {formatTimestamp(scene.timestamp)}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-mist-500">
-                      {getTimeOfDay(scene.timestamp)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setDetailScene(scene)}
-                    className="group flex-1 rounded-xl border border-teal-800 bg-teal-900/50 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-dusk-400/40 hover:shadow-lg hover:shadow-dusk-400/10"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      {getWeatherIcon(scene.weather)}
-                      <span className="text-sm font-semibold text-mist-100">
-                        {scene.segment}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 mb-1.5 text-mist-400">
-                      <MapPin className="w-3 h-3" />
-                      <span className="text-xs">{scene.routeName}</span>
-                      <span className="mx-1 text-teal-700">·</span>
-                      <span className="text-xs">{scene.seatDirection}侧</span>
-                    </div>
-                    {scene.note && (
-                      <p className="text-xs text-mist-400 line-clamp-2">
-                        {scene.note}
+              {sorted.map((scene) => {
+                const paired = Boolean(getPartner(scene, scenes))
+                return (
+                  <div key={scene.id} className="relative flex gap-4">
+                    <div
+                      className={`absolute -left-5 top-1 h-2.5 w-2.5 rounded-full ring-4 ring-teal-950 ${
+                        paired ? 'bg-dusk-300' : 'bg-dusk-400'
+                      }`}
+                    />
+                    <div className="w-20 shrink-0 pt-0.5 text-right">
+                      <p className="text-xs text-dusk-400">
+                        {formatTimestamp(scene.timestamp)}
                       </p>
-                    )}
-                    <div className="mt-2 flex items-center gap-2">
-                      {getTreeIcon(scene.treeDensity)}
-                      {getPedestrianIcon(scene.pedestrianStatus)}
-                      {scene.signText && (
-                        <span className="rounded bg-teal-800/60 px-1.5 py-0.5 text-[10px] text-mist-300">
-                          {scene.signText}
-                        </span>
-                      )}
+                      <p className="mt-0.5 text-[10px] text-mist-500">
+                        {getTimeOfDay(scene.timestamp)}
+                      </p>
                     </div>
-                  </button>
-                </div>
-              ))}
+                    <button
+                      onClick={() => openDetail(scene)}
+                      className={`group flex-1 rounded-xl border bg-teal-900/50 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
+                        paired
+                          ? 'border-dusk-400/40 hover:border-dusk-300/70 hover:shadow-dusk-400/15'
+                          : 'border-teal-800 hover:border-dusk-400/40 hover:shadow-dusk-400/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        {getWeatherIcon(scene.weather)}
+                        <span className="text-sm font-semibold text-mist-100">
+                          {scene.segment}
+                        </span>
+                        {paired && (
+                          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-dusk-400/15 px-2 py-0.5 text-[10px] text-dusk-300">
+                            <ArrowLeftRight className="w-3 h-3" />
+                            左右对照
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 mb-1.5 text-mist-400">
+                        <MapPin className="w-3 h-3" />
+                        <span className="text-xs">{scene.routeName}</span>
+                        <span className="mx-1 text-teal-700">·</span>
+                        <span className="text-xs">{scene.seatDirection}侧</span>
+                      </div>
+                      {scene.note && (
+                        <p className="text-xs text-mist-400 line-clamp-2">
+                          {scene.note}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2">
+                        {getTreeIcon(scene.treeDensity)}
+                        {getPedestrianIcon(scene.pedestrianStatus)}
+                        {scene.signText && (
+                          <span className="rounded bg-teal-800/60 px-1.5 py-0.5 text-[10px] text-mist-300">
+                            {scene.signText}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
       </div>
 
-      {detailScene && (
+      {detail && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setDetailScene(null)}
+          onClick={() => setDetail(null)}
         >
           <div
-            className="relative mx-4 w-full max-w-md animate-scale-in rounded-2xl border border-teal-700 bg-teal-900 p-6 shadow-2xl"
+            className={`relative mx-4 w-full animate-scale-in rounded-2xl border border-teal-700 bg-teal-900 p-6 shadow-2xl ${
+              detail.kind === 'pair' ? 'max-w-2xl' : 'max-w-md'
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setDetailScene(null)}
-              className="absolute right-4 top-4 text-mist-400 hover:text-mist-100 transition-colors"
+              onClick={() => setDetail(null)}
+              className="absolute right-4 top-4 z-10 text-mist-400 hover:text-mist-100 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="mb-4 flex items-center gap-3">
-              {getWeatherIcon(detailScene.weather)}
-              <h2 className="text-xl font-bold text-dusk-400">{detailScene.segment}</h2>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-mist-300">
-                <MapPin className="w-4 h-4 text-dusk-400" />
-                <span>{detailScene.routeName}</span>
-                <span className="text-teal-600">·</span>
-                <span>{detailScene.seatDirection}侧</span>
-              </div>
-              <div className="flex items-center gap-2 text-mist-300">
-                <Clock className="w-4 h-4 text-dusk-400" />
-                <span>{formatTimestamp(detailScene.timestamp)}</span>
-                <span className="text-teal-600">·</span>
-                <span>{getTimeOfDay(detailScene.timestamp)}</span>
-              </div>
-              <div className="flex items-center gap-3 text-mist-300">
-                {getTreeIcon(detailScene.treeDensity)}
-                <span>{detailScene.treeDensity}</span>
-                {getPedestrianIcon(detailScene.pedestrianStatus)}
-                <span>{detailScene.pedestrianStatus}</span>
-              </div>
-              {detailScene.signText && (
-                <div className="rounded-lg bg-teal-800/50 px-3 py-2 text-mist-200">
-                  招牌: {detailScene.signText}
-                </div>
-              )}
-              {detailScene.note && (
-                <div className="rounded-lg border border-teal-800 px-3 py-2 text-mist-300">
-                  {detailScene.note}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => handleDelete(detailScene.id)}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-red-900/40 py-2.5 text-sm text-red-300 transition-colors hover:bg-red-900/60"
-            >
-              <Trash2 className="w-4 h-4" />
-              删除此窗景
-            </button>
+            {detail.kind === 'pair' ? (
+              <PairView pair={detail.pair} onDelete={handleDelete} />
+            ) : (
+              <SingleDetail scene={detail.scene} onDelete={handleDelete} />
+            )}
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function SingleDetail({
+  scene,
+  onDelete,
+}: {
+  scene: WindowScene
+  onDelete: (id: string) => void
+}) {
+  return (
+    <>
+      <div className="mb-4 flex items-center gap-3">
+        {getWeatherIcon(scene.weather)}
+        <h2 className="text-xl font-bold text-dusk-400">{scene.segment}</h2>
+      </div>
+
+      <div className="space-y-3 text-sm">
+        <div className="flex items-center gap-2 text-mist-300">
+          <MapPin className="w-4 h-4 text-dusk-400" />
+          <span>{scene.routeName}</span>
+          <span className="text-teal-600">·</span>
+          <span>{scene.seatDirection}侧</span>
+        </div>
+        <div className="flex items-center gap-2 text-mist-300">
+          <Clock className="w-4 h-4 text-dusk-400" />
+          <span>{formatTimestamp(scene.timestamp)}</span>
+          <span className="text-teal-600">·</span>
+          <span>{getTimeOfDay(scene.timestamp)}</span>
+        </div>
+        <div className="flex items-center gap-3 text-mist-300">
+          {getTreeIcon(scene.treeDensity)}
+          <span>{scene.treeDensity}</span>
+          {getPedestrianIcon(scene.pedestrianStatus)}
+          <span>{scene.pedestrianStatus}</span>
+        </div>
+        {scene.signText && (
+          <div className="rounded-lg bg-teal-800/50 px-3 py-2 text-mist-200">
+            招牌: {scene.signText}
+          </div>
+        )}
+        {scene.note && (
+          <div className="rounded-lg border border-teal-800 px-3 py-2 text-mist-300">
+            {scene.note}
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={() => onDelete(scene.id)}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-red-900/40 py-2.5 text-sm text-red-300 transition-colors hover:bg-red-900/60"
+      >
+        <Trash2 className="w-4 h-4" />
+        删除此窗景
+      </button>
+    </>
   )
 }

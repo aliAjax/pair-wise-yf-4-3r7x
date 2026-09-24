@@ -17,6 +17,8 @@ export interface WindowScene {
   treeDensity: TreeDensity
   pedestrianStatus: PedestrianStatus
   note: string
+  /** 配对伙伴的 id；同线路、同区间、采样相隔五分钟内、朝向相反的两条记录互指 */
+  partnerId?: string
 }
 
 export interface SceneFormData {

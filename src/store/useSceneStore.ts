@@ -6,18 +6,18 @@ import {
   deleteScene as storageDeleteScene,
   getScenesByRoute,
   getAllRouteNames,
-  getRandomScene,
 } from '@/services/storage'
+import { pickRandom, type RandomPick } from '@/utils/pairs'
 
 interface SceneState {
   scenes: WindowScene[]
   routeNames: string[]
   currentRouteScenes: WindowScene[]
   selectedRoute: string
-  randomScene: WindowScene | null
+  randomPick: RandomPick | null
 
   loadAll: () => void
-  saveScene: (data: SceneFormData) => void
+  saveScene: (data: SceneFormData) => boolean
   deleteScene: (id: string) => void
   selectRoute: (routeName: string) => void
   refreshRandom: () => void
@@ -28,7 +28,7 @@ export const useSceneStore = create<SceneState>((set) => ({
   routeNames: [],
   currentRouteScenes: [],
   selectedRoute: '',
-  randomScene: null,
+  randomPick: null,
 
   loadAll: () => {
     const scenes = getAllScenes()
@@ -42,7 +42,7 @@ export const useSceneStore = create<SceneState>((set) => ({
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
     }
-    storageSaveScene(scene)
+    const paired = storageSaveScene(scene)
     const scenes = getAllScenes()
     const routeNames = getAllRouteNames()
     set((state) => {
@@ -50,6 +50,7 @@ export const useSceneStore = create<SceneState>((set) => ({
         state.selectedRoute ? getScenesByRoute(state.selectedRoute) : []
       return { scenes, routeNames, currentRouteScenes }
     })
+    return paired
   },
 
   deleteScene: (id: string) => {
@@ -69,7 +70,7 @@ export const useSceneStore = create<SceneState>((set) => ({
   },
 
   refreshRandom: () => {
-    const randomScene = getRandomScene()
-    set({ randomScene })
+    const randomPick = pickRandom(getAllScenes())
+    set({ randomPick })
   },
 }))

@@ -2,16 +2,16 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSceneStore } from '@/store/useSceneStore'
 import {
   WRITING_PROMPTS,
-  getWeatherIcon,
   getTreeIcon,
   getPedestrianIcon,
   formatTimestamp,
   getTimeOfDay,
 } from '@/utils/sceneHelpers'
+import PairView from '@/components/PairView'
 import { Lightbulb, RefreshCw, Quote, Bus, ArrowRight } from 'lucide-react'
 
 export default function InspirePage() {
-  const { randomScene, refreshRandom, loadAll, scenes } = useSceneStore()
+  const { randomPick, refreshRandom, loadAll, scenes } = useSceneStore()
   const [revealed, setRevealed] = useState(false)
   const [displayedPrompt, setDisplayedPrompt] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -22,7 +22,7 @@ export default function InspirePage() {
   }, [loadAll])
 
   useEffect(() => {
-    if (!revealed || !randomScene) return
+    if (!revealed || !randomPick) return
     const idx = Math.floor(Math.random() * WRITING_PROMPTS.length)
     setDisplayedPrompt('')
     setIsTyping(true)
@@ -39,7 +39,7 @@ export default function InspirePage() {
     }, 60)
 
     return () => clearInterval(timer)
-  }, [revealed, randomScene])
+  }, [revealed, randomPick])
 
   const handlePick = useCallback(() => {
     refreshRandom()
@@ -91,8 +91,8 @@ export default function InspirePage() {
             }
           `}</style>
         </div>
-      ) : randomScene ? (
-        <div className="w-full max-w-lg flex flex-col items-center gap-6 animate-[fadeUp_0.6s_ease-out]">
+      ) : randomPick ? (
+        <div className="w-full max-w-2xl flex flex-col items-center gap-6 animate-[fadeUp_0.6s_ease-out]">
           <style>{`
             @keyframes fadeUp {
               from { opacity: 0; transform: translateY(24px); }
@@ -104,47 +104,13 @@ export default function InspirePage() {
             }
           `}</style>
 
-          <div className="w-full rounded-2xl bg-dusk-400/10 border border-dusk-400/30 p-6 space-y-5">
-            <div className="flex items-center justify-between text-sm text-mist-400">
-              <div className="flex items-center gap-2">
-                <ArrowRight className="w-3.5 h-3.5 text-dusk-400" />
-                <span className="text-mist-100 font-medium">{randomScene.routeName}</span>
-                <span className="text-mist-500">·</span>
-                <span>{randomScene.segment}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>{getTimeOfDay(randomScene.timestamp)}</span>
-                <span className="text-mist-500">·</span>
-                <span>{formatTimestamp(randomScene.timestamp).split(' ')[1]}</span>
-                {getWeatherIcon(randomScene.weather)}
-              </div>
+          {randomPick.kind === 'pair' ? (
+            <div className="w-full rounded-2xl bg-dusk-400/10 border border-dusk-400/30 p-5 sm:p-6">
+              <PairView pair={randomPick.pair} />
             </div>
-
-            <p className="text-mist-100 font-serif text-xl leading-relaxed tracking-wide">
-              {randomScene.note}
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
-                {getTreeIcon(randomScene.treeDensity)}
-                {randomScene.treeDensity}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
-                {getPedestrianIcon(randomScene.pedestrianStatus)}
-                {randomScene.pedestrianStatus}
-              </span>
-              {randomScene.signText && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
-                  <Lightbulb className="w-3.5 h-3.5 text-dusk-400" />
-                  {randomScene.signText}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
-                <Bus className="w-3.5 h-3.5 text-dusk-400" />
-                {randomScene.seatDirection}侧
-              </span>
-            </div>
-          </div>
+          ) : (
+            <SingleInspiration scene={randomPick.scene} />
+          )}
 
           <div className="w-full rounded-xl bg-dusk-400/5 border border-dusk-400/15 p-5 flex gap-3">
             <Quote className="w-5 h-5 text-dusk-400/60 flex-shrink-0 mt-0.5" />
@@ -167,6 +133,51 @@ export default function InspirePage() {
           </button>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function SingleInspiration({ scene }: { scene: import('@/types').WindowScene }) {
+  return (
+    <div className="w-full max-w-lg rounded-2xl bg-dusk-400/10 border border-dusk-400/30 p-6 space-y-5">
+      <div className="flex items-center justify-between text-sm text-mist-400">
+        <div className="flex items-center gap-2">
+          <ArrowRight className="w-3.5 h-3.5 text-dusk-400" />
+          <span className="text-mist-100 font-medium">{scene.routeName}</span>
+          <span className="text-mist-500">·</span>
+          <span>{scene.segment}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>{getTimeOfDay(scene.timestamp)}</span>
+          <span className="text-mist-500">·</span>
+          <span>{formatTimestamp(scene.timestamp).split(' ')[1]}</span>
+        </div>
+      </div>
+
+      <p className="text-mist-100 font-serif text-xl leading-relaxed tracking-wide">
+        {scene.note}
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
+          {getTreeIcon(scene.treeDensity)}
+          {scene.treeDensity}
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
+          {getPedestrianIcon(scene.pedestrianStatus)}
+          {scene.pedestrianStatus}
+        </span>
+        {scene.signText && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
+            <Lightbulb className="w-3.5 h-3.5 text-dusk-400" />
+            {scene.signText}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-dusk-400/10 text-mist-300 text-xs">
+          <Bus className="w-3.5 h-3.5 text-dusk-400" />
+          {scene.seatDirection}侧
+        </span>
+      </div>
     </div>
   )
 }

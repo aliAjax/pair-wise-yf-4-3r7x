@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bus, MapPin, Armchair, Clock, CloudSun, Signpost, TreePine, Users, FileText, Send } from 'lucide-react'
+import { Bus, MapPin, Armchair, Clock, CloudSun, Signpost, TreePine, Users, FileText, Send, ArrowLeftRight } from 'lucide-react'
 import { useSceneStore } from '@/store/useSceneStore'
 import { getWeatherIcon, getTreeIcon, getPedestrianIcon, formatTimestamp } from '@/utils/sceneHelpers'
 import type { SceneFormData, Weather, TreeDensity, PedestrianStatus, SeatDirection } from '@/types'
@@ -25,6 +25,7 @@ export default function RecordPage() {
   const [form, setForm] = useState<SceneFormData>(initialForm)
   const [now, setNow] = useState(new Date())
   const [showSuccess, setShowSuccess] = useState(false)
+  const [justPaired, setJustPaired] = useState(false)
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -38,10 +39,12 @@ export default function RecordPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    saveScene(form)
+    const paired = saveScene(form)
+    setJustPaired(paired)
     setShowSuccess(true)
     setTimeout(() => {
       setShowSuccess(false)
+      setJustPaired(false)
       setForm(initialForm)
     }, 1500)
   }
@@ -52,7 +55,15 @@ export default function RecordPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="animate-bounce flex flex-col items-center gap-2 opacity-0" style={{ animation: 'fadeInUp 1.5s ease forwards' }}>
             <Bus className="w-16 h-16 text-dusk-400" />
-            <span className="text-mist-100 font-serif text-lg">记录已保存</span>
+            <span className="text-mist-100 font-serif text-lg">
+              {justPaired ? '已保存，并配成左右对照' : '记录已保存'}
+            </span>
+            {justPaired && (
+              <span className="flex items-center gap-1 text-dusk-300/80 text-xs">
+                <ArrowLeftRight className="w-3 h-3" />
+                去时间线查看并排笔记
+              </span>
+            )}
           </div>
           <style>{`@keyframes fadeInUp { 0% { opacity:0; transform:translateY(20px) } 40% { opacity:1; transform:translateY(0) } 100% { opacity:0; transform:translateY(-40px) } }`}</style>
         </div>
